@@ -5,6 +5,7 @@ import '../services/group_service.dart';
 import '../services/sms_service.dart';
 import 'group_detail_screen.dart';
 import 'group_management_screen.dart';
+import 'about_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -246,6 +247,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   }
                 }
+              } else if (value == 'about') {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AboutScreen(),
+                  ),
+                );
               }
             },
             itemBuilder: (context) => [
@@ -256,6 +264,10 @@ class _HomeScreenState extends State<HomeScreen> {
               const PopupMenuItem(
                 value: 'clear_data',
                 child: Text('清空数据'),
+              ),
+              const PopupMenuItem(
+                value: 'about',
+                child: Text('关于应用'),
               ),
             ],
           ),
