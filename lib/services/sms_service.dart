@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/sms_message.dart';
 import 'group_service.dart';
 
 class SmsService {
+  static const platform = MethodChannel('com.smsgrouping/sms');
   final GroupService _groupService = GroupService();
 
   // 请求SMS权限
@@ -17,24 +20,47 @@ class SmsService {
       }
       return status.isGranted;
     } else if (Platform.isIOS) {
-      // iOS不需要SMS权限，但需要处理其他权限
+      // iOS不直接支持短信读取，返回true但使用模拟数据
       return true;
     }
     return false;
   }
 
-  // 读取短信（模拟数据，实际需要根据平台实现）
+  // 读取真实短信
   Future<List<SmsMessage>> readSms() async {
     final hasPermission = await requestSmsPermission();
     if (!hasPermission) {
       throw Exception('没有短信读取权限');
     }
 
-    // 这里是模拟数据，实际实现需要根据平台调用原生API
-    return _getMockSmsMessages();
+    try {
+      if (Platform.isAndroid) {
+        // 尝试读取真实短信
+        final List<dynamic> result = await platform.invokeMethod('readSms');
+        return result.map((sms) => SmsMessage(
+          id: sms['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+          sender: sms['sender']?.toString() ?? '未知号码',
+          content: sms['content']?.toString() ?? '',
+          timestamp: DateTime.fromMillisecondsSinceEpoch(
+            sms['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+          ),
+        )).toList();
+      } else {
+        // iOS使用模拟数据
+        return _getMockSmsMessages();
+      }
+    } on PlatformException catch (e) {
+      // 如果原生方法失败，返回模拟数据
+      debugPrint('无法读取短信: ${e.message}');
+      return _getMockSmsMessages();
+    } catch (e) {
+      // 返回模拟数据作为后备
+      debugPrint('读取短信出错: $e');
+      return _getMockSmsMessages();
+    }
   }
 
-  // 模拟短信数据
+  // 模拟短信数据（作为后备）
   List<SmsMessage> _getMockSmsMessages() {
     final now = DateTime.now();
     return [
@@ -134,5 +160,20 @@ class SmsService {
     } catch (e) {
       throw Exception('刷新短信失败: $e');
     }
+  }
+
+  // 获取短信统计信息
+  Future<Map<String, int>> getSmsStatistics() async {
+    final messages = await _groupService.loadMessages();
+    final groups = await _groupService.loadGroups();
+    
+    final statistics = <String, int>{};
+    for (var group in groups) {
+      statistics[group.id] = messages
+          .where((msg) => msg.category == group.id)
+          .length;
+    }
+    
+    return statistics;
   }
 }

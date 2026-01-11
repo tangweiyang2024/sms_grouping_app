@@ -4,6 +4,7 @@ import '../models/sms_message.dart';
 import '../services/group_service.dart';
 import '../services/sms_service.dart';
 import 'group_detail_screen.dart';
+import 'group_management_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -106,15 +107,55 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: '导入短信',
           ),
           PopupMenuButton<String>(
-            onSelected: (value) {
+            onSelected: (value) async {
               if (value == 'manage_groups') {
-                // TODO: 导航到分组管理页面
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const GroupManagementScreen(),
+                  ),
+                );
+                // 重新加载数据
+                _initializeApp();
+              } else if (value == 'clear_data') {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('确认清空'),
+                    content: const Text('确定要清空所有短信数据吗？'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('取消'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        child: const Text('清空'),
+                      ),
+                    ],
+                  ),
+                );
+                
+                if (confirm == true) {
+                  await _groupService.saveMessages([]);
+                  _initializeApp();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('已清空所有数据')),
+                    );
+                  }
+                }
               }
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'manage_groups',
                 child: Text('管理分组'),
+              ),
+              const PopupMenuItem(
+                value: 'clear_data',
+                child: Text('清空数据'),
               ),
             ],
           ),
