@@ -56,7 +56,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _error = null;
       });
 
+      // 显示调试信息
+      debugPrint('开始导入短信...');
+      debugPrint('运行平台: ${Theme.of(context).platform}');
+
       final messages = await _smsService.importAndCategorizeSms();
+      
+      debugPrint('短信导入完成，共 ${messages.length} 条');
       
       setState(() {
         _allMessages = messages;
@@ -65,21 +71,115 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('短信导入成功！')),
+          SnackBar(
+            content: Text('成功导入 ${messages.length} 条短信'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
+      final errorText = e.toString();
+      debugPrint('短信导入失败: $errorText');
+      
       setState(() {
-        _error = e.toString();
+        _error = errorText;
         _isLoading = false;
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败: $e'), backgroundColor: Colors.red),
+        // 显示详细错误对话框
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red),
+                SizedBox(width: 8),
+                Text('短信导入失败'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('详细错误信息:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      errorText,
+                      style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('确定'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showErrorAnalysis(errorText);
+                },
+                child: const Text('查看解决方案'),
+              ),
+            ],
+          ),
         );
       }
     }
+  }
+
+  void _showErrorAnalysis(String errorText) {
+    String analysis = '';
+    String solution = '';
+
+    if (errorText.contains('没有短信读取权限')) {
+      analysis = '应用没有获得短信读取权限。';
+      solution = '1. 前往设置\n2. 找到应用权限\n3. 授予短信访问权限\n4. 重新导入短信';
+    } else if (errorText.contains('原生短信读取失败')) {
+      analysis = 'Android原生短信读取出现问题。';
+      solution = '1. 检查Android版本是否为6.0+\n2. 确认手机有短信数据\n3. 重启应用后重试\n4. 如果问题持续，可能是设备兼容性问题';
+    } else if (errorText.contains('PlatformException')) {
+      analysis = '平台级别异常，可能是权限或系统问题。';
+      solution = '1. 检查应用权限设置\n2. 确认系统版本兼容性\n3. 清除应用缓存后重试';
+    } else {
+      analysis = '未知的错误类型。';
+      solution = '1. 记录错误信息\n2. 联系开发者\n3. 提供设备型号和Android版本';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('错误分析'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('问题: $analysis'),
+            const SizedBox(height: 16),
+            const Text('解决方案:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(solution),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('我知道了'),
+          ),
+        ],
+      ),
+    );
   }
 
   int _getMessageCount(String groupId) {

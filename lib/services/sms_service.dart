@@ -30,13 +30,16 @@ class SmsService {
   Future<List<SmsMessage>> readSms() async {
     final hasPermission = await requestSmsPermission();
     if (!hasPermission) {
-      throw Exception('没有短信读取权限');
+      throw Exception('没有短信读取权限，请在设置中授予短信访问权限');
     }
 
     try {
       if (Platform.isAndroid) {
+        debugPrint('尝试读取Android真实短信...');
         // 尝试读取真实短信
         final List<dynamic> result = await platform.invokeMethod('readSms');
+        debugPrint('成功读取到 ${result.length} 条真实短信');
+        
         return result.map((sms) => SmsMessage(
           id: sms['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
           sender: sms['sender']?.toString() ?? '未知号码',
@@ -46,17 +49,20 @@ class SmsService {
           ),
         )).toList();
       } else {
-        // iOS使用模拟数据
+        // iOS使用模拟数据并说明原因
+        debugPrint('iOS系统限制，使用模拟数据');
         return _getMockSmsMessages();
       }
     } on PlatformException catch (e) {
-      // 如果原生方法失败，返回模拟数据
-      debugPrint('无法读取短信: ${e.message}');
-      return _getMockSmsMessages();
+      // 抛出真实的平台错误，而不是返回模拟数据
+      final errorMessage = '原生短信读取失败: ${e.message}\n错误代码: ${e.code}\n详细信息: ${e.details}';
+      debugPrint(errorMessage);
+      throw Exception(errorMessage);
     } catch (e) {
-      // 返回模拟数据作为后备
-      debugPrint('读取短信出错: $e');
-      return _getMockSmsMessages();
+      // 抛出真实的错误信息
+      final errorMessage = '短信读取出错: $e\n错误类型: ${e.runtimeType}';
+      debugPrint(errorMessage);
+      throw Exception(errorMessage);
     }
   }
 
