@@ -99,21 +99,51 @@ jobs:
         echo "iOS project structure:"
         find . -name "*.xcodeproj" -o -name "*.xcworkspace"
     
+    - name: Fix iOS Signing Configuration
+      if: !matrix.simulator
+      run: |
+        echo "Fixing iOS signing configuration for CI/CD..."
+        
+        # 修改项目配置，禁用开发团队要求
+        cd ios
+        sed -i '' 's/DEVELOPMENT_TEAM = [^;]*/DEVELOPMENT_TEAM = ""/' Runner.xcodeproj/project.pbxproj
+        sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/' Runner.xcodeproj/project.pbxproj
+        sed -i '' 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/' Runner.xcodeproj/project.pbxproj
+        
+        # 显示修改后的配置
+        echo "Updated signing configuration:"
+        grep -A2 -B2 "DEVELOPMENT_TEAM\|CODE_SIGN" Runner.xcodeproj/project.pbxproj | head -20
+        
+        echo "iOS signing configuration fixed for CI/CD"
+    
     - name: Build iOS - Development
       if: github.event.inputs.release_type != 'release' && !matrix.simulator
       run: |
         echo "Building iOS for development (no codesign)"
+        
+        # 使用正确的参数构建
         flutter build ios --release --no-codesign
         
-        # 创建 IPA 文件
-        mkdir -p build/ipa
-        cp -r build/ios/iphoneos/Runner.app build/ipa/Payload
-        cd build/ipa
-        zip -r ../Runner-dev.ipa .
-        cd ../..
-        
-        echo "Development IPA created successfully"
-      continue-on-error: true
+        # 检查构建产物
+        if [ -d "build/ios/iphoneos/Runner.app" ]; then
+          echo "Build successful, creating IPA..."
+          
+          # 创建 IPA 文件
+          mkdir -p build/ipa
+          cp -r build/ios/iphoneos/Runner.app build/ipa/Payload
+          cd build/ipa
+          zip -r ../Runner-dev.ipa .
+          cd ../..
+          
+          echo "Development IPA created successfully"
+          ls -lh build/Runner-dev.ipa
+        else
+          echo "Build failed - Runner.app not found"
+          echo "Checking build directory:"
+          find build -name "*.app" 2>/dev/null || echo "No .app files found"
+          exit 1
+        fi
+      continue-on-error: false
     
     - name: Build iOS - Simulator
       if: matrix.simulator
