@@ -149,7 +149,8 @@ jobs:
       if: matrix.simulator
       run: |
         echo "Building iOS Simulator version"
-        flutter build ios --simulator --release
+        # 使用 debug 模式，release 模式不支持模拟器
+        flutter build ios --simulator --debug
         
         # 创建模拟器版本
         mkdir -p build/simulator

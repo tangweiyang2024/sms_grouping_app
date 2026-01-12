@@ -78,8 +78,8 @@ jobs:
         # 列出可用的模拟器
         xcrun simctl list devices available
         
-        # 为模拟器构建（不需要代码签名）
-        flutter build ios --simulator --release
+        # 为模拟器构建（使用 debug 模式，release 不支持模拟器）
+        flutter build ios --simulator --debug
         
         # 检查构建产物
         if [ -d "build/ios/iphonesimulator/Runner.app" ]; then
